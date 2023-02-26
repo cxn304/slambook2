@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+
+*cmake-build-*
+*.idea
+**build**
+ch12/test_data/**/*
+*.cmake
+*.gz

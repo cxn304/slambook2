@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "rebuild",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/rgbd/joinMap", //要运行的程序名字(填编译完成后生成的可执行文件名)
+            "targetArchitecture": "x86",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "cwd": "${workspaceRoot}",
+            //"preLaunchTask": "rebuild" //任务的名字(要和tasks.json中匹配)
+        },
+    ]
+}
