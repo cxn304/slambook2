@@ -6,7 +6,7 @@
             "name": "CMake: Compile and Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/test_triangulation",
+            "program": "${workspaceFolder}/bin/test_triangulation",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

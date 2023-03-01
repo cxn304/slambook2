@@ -32,7 +32,7 @@ void Map::InsertKeyFrame(Frame::Ptr frame) {
         active_keyframes_[frame->keyframe_id_] = frame;
     }
 
-    if (active_keyframes_.size() > num_active_keyframes_) {
+    if (static_cast<int>(active_keyframes_.size()) > num_active_keyframes_) {
         RemoveOldKeyframe();
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 #ifndef MYSLAM_COMMON_INCLUDE_H
 #define MYSLAM_COMMON_INCLUDE_H
-
+#define FMT_HEADER_ONLY //这个很重要,报错fmt相关的head_only或者compiled versions of fmt,所以这里要macro FMT_HEADER_ONLY
 // std
 #include <atomic>
 #include <condition_variable>
