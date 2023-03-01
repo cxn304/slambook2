@@ -51,7 +51,7 @@ set(THIRD_PARTY_LIBS
         ${OpenCV_LIBS}
         ${Sophus_LIBRARIES}
         ${Pangolin_LIBRARIES} GL GLU GLEW glut
-        g2o_core g2o_stuff g2o_types_sba g2o_solver_csparse g2o_csparse_extension
+        g2o_core g2o_stuff g2o_types_sba g2o_solver_csparse g2o_csparse_extension fmt::fmt
         ${GTEST_BOTH_LIBRARIES}
         ${GLOG_LIBRARIES}
         ${GFLAGS_LIBRARIES}

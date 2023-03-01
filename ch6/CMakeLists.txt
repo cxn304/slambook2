@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS "-std=c++14 -O3")#-O3是一个优化选项，告诉编译器优化我们的代码
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-
+set(CMAKE_MODULE_PATH "/home/g2o/cmake_modules")
 # OpenCV
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})

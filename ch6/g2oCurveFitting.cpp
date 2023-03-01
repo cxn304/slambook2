@@ -30,9 +30,9 @@ public:
   }
 
   // 存盘和读盘：留空
-  virtual bool read(istream &in) {}
+  virtual bool read(istream &in) {return true;}
 
-  virtual bool write(ostream &out) const {}
+  virtual bool write(ostream &out) const {return true;}
 };
 
 // 误差模型 模板参数：观测值维度，类型，连接顶点类型
@@ -59,9 +59,9 @@ public:
     _jacobianOplusXi[2] = -y;
   }
 
-  virtual bool read(istream &in) {}
+  virtual bool read(istream &in) {return true;}
 
-  virtual bool write(ostream &out) const {}
+  virtual bool write(ostream &out) const {return true;}
 
 public:
   double _x;  // x 值， y 值为 _measurement
