@@ -3,7 +3,7 @@
 //
 
 #include <opencv2/opencv.hpp>
-
+#include <opencv2/imgproc/imgproc_c.h>
 #include "myslam/algorithm.h"
 #include "myslam/backend.h"
 #include "myslam/config.h"
@@ -47,7 +47,7 @@ bool Frontend::Track() {
         current_frame_->SetPose(relative_motion_ * last_frame_->Pose());
     }
 
-    int num_track_last = TrackLastFrame();
+    //int num_track_last = TrackLastFrame();
     tracking_inliers_ = EstimateCurrentPose();
 
     if (tracking_inliers_ > num_features_tracking_) {
