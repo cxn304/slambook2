@@ -58,14 +58,14 @@ class VertexXYZ : public g2o::BaseVertex<3, Vec3> {
     virtual bool write(std::ostream &out) const override { return true; }
 };
 
-/// 仅估计位姿的一元边
+/// 仅估计位姿的一元边 <2, Vec2, VertexPose>,传入的是pos和k,2是dimension of measurement,Vec2是type of measurement
 class EdgeProjectionPoseOnly : public g2o::BaseUnaryEdge<2, Vec2, VertexPose> {
    public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     EdgeProjectionPoseOnly(const Vec3 &pos, const Mat33 &K)
         : _pos3d(pos), _K(K) {}
-
+    //这里计算error
     virtual void computeError() override {
         const VertexPose *v = static_cast<VertexPose *>(_vertices[0]);
         SE3 T = v->estimate();
@@ -73,7 +73,7 @@ class EdgeProjectionPoseOnly : public g2o::BaseUnaryEdge<2, Vec2, VertexPose> {
         pos_pixel /= pos_pixel[2];
         _error = _measurement - pos_pixel.head<2>();
     }
-
+    // 这里计算雅可比矩阵
     virtual void linearizeOplus() override {
         const VertexPose *v = static_cast<VertexPose *>(_vertices[0]);
         SE3 T = v->estimate();

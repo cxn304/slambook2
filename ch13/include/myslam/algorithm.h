@@ -37,7 +37,7 @@ inline bool triangulation(const std::vector<SE3> &poses,
     return false;
 }
 
-// converters
+// converters,将cv的point转成Eigen::Vector2d
 inline Vec2 toVec2(const cv::Point2f p) { return Vec2(p.x, p.y); }
 
 }  // namespace myslam

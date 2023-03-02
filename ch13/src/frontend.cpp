@@ -139,6 +139,7 @@ int Frontend::TriangulateNewPoints() {
     return cnt_triangulated_pts;
 }
 
+// g2o做优化,加入顶点和边进行优化
 int Frontend::EstimateCurrentPose() {
     // setup g2o
     typedef g2o::BlockSolver_6_3 BlockSolverType;
@@ -162,19 +163,21 @@ int Frontend::EstimateCurrentPose() {
     // edges
     int index = 1;
     std::vector<EdgeProjectionPoseOnly *> edges;
-    std::vector<Feature::Ptr> features;
+    std::vector<Feature::Ptr> features;//features 存储的是左相机的特征点
     for (size_t i = 0; i < current_frame_->features_left_.size(); ++i) {
-        auto mp = current_frame_->features_left_[i]->map_point_.lock();
+        auto mp = current_frame_->features_left_[i]->map_point_.lock();//weak_ptr是有lock()函数的
         if (mp) {
             features.push_back(current_frame_->features_left_[i]);
             EdgeProjectionPoseOnly *edge =
                 new EdgeProjectionPoseOnly(mp->pos_, K);
             edge->setId(index);
-            edge->setVertex(0, vertex_pose);
+            edge->setVertex(0, vertex_pose);//只有一个顶点,第一个数是0
             edge->setMeasurement(
-                toVec2(current_frame_->features_left_[i]->position_.pt));
+                toVec2(current_frame_->features_left_[i]->position_.pt));//测量值是图像上的点
+            //图中的Q就是信息矩阵，为了表示我们对误差各分量重视程度的不一样。 
+            // 一般情况下，我们都设置这个矩阵为单位矩阵，表示我们对所有的误差分量的重视程度都一样。
             edge->setInformation(Eigen::Matrix2d::Identity());
-            edge->setRobustKernel(new g2o::RobustKernelHuber);
+            edge->setRobustKernel(new g2o::RobustKernelHuber);//鲁棒核函数
             edges.push_back(edge);
             optimizer.addEdge(edge);
             index++;
@@ -185,19 +188,23 @@ int Frontend::EstimateCurrentPose() {
     const double chi2_th = 5.991;
     int cnt_outlier = 0;
     for (int iteration = 0; iteration < 4; ++iteration) {
-        vertex_pose->setEstimate(current_frame_->Pose());
+        //总共优化了40遍，以10遍为一个优化周期，对outlier进行一次判断
+        //舍弃掉outlier的边，随后再进行下一个10步优化
+        vertex_pose->setEstimate(current_frame_->Pose());//这里的顶点是SE3位姿,待优化的变量
         optimizer.initializeOptimization();
-        optimizer.optimize(10);
+        optimizer.optimize(10);// 每次循环迭代10次
         cnt_outlier = 0;
 
         // count the outliers
         for (size_t i = 0; i < edges.size(); ++i) {
             auto e = edges[i];
-            if (features[i]->is_outlier_) {
+            if (features[i]->is_outlier_) {// 特征点本身就是异常点，计算重投影误差
                 e->computeError();
             }
+            // （信息矩阵对应的范数）误差超过阈值，判定为异常点，并计数，否则恢复为正常点
             if (e->chi2() > chi2_th) {
                 features[i]->is_outlier_ = true;
+                // 设置等级  一般情况下g2o只处理level = 0的边，设置等级为1，下次循环g2o不再优化异常值
                 e->setLevel(1);
                 cnt_outlier++;
             } else {
