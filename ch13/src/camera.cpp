@@ -4,7 +4,7 @@ namespace myslam {
 
 Camera::Camera() {
 }
-
+//return pose_ * T_c_w * p_w; p_w:world point,T_c_w * p_w:camera point,
 Vec3 Camera::world2camera(const Vec3 &p_w, const SE3 &T_c_w) {
     return pose_ * T_c_w * p_w;
 }
@@ -12,7 +12,7 @@ Vec3 Camera::world2camera(const Vec3 &p_w, const SE3 &T_c_w) {
 Vec3 Camera::camera2world(const Vec3 &p_c, const SE3 &T_c_w) {
     return T_c_w.inverse() * pose_inv_ * p_c;
 }
-
+// p_c就是真实相机坐标,不是归一化的坐标
 Vec2 Camera::camera2pixel(const Vec3 &p_c) {
     return Vec2(
             fx_ * p_c(0, 0) / p_c(2, 0) + cx_,
@@ -27,7 +27,7 @@ Vec3 Camera::pixel2camera(const Vec2 &p_p, double depth) {
             depth
     );
 }
-
+//return camera2pixel(world2camera(p_w, T_c_w));
 Vec2 Camera::world2pixel(const Vec3 &p_w, const SE3 &T_c_w) {
     return camera2pixel(world2camera(p_w, T_c_w));
 }

@@ -185,7 +185,7 @@ int Frontend::EstimateCurrentPose() {
     }
 
     // estimate the Pose the determine the outliers
-    const double chi2_th = 5.991;
+    const double chi2_th = 5.991;//重投影误差边界值，大于这个就设置为outline
     int cnt_outlier = 0;
     for (int iteration = 0; iteration < 4; ++iteration) {
         //总共优化了40遍，以10遍为一个优化周期，对outlier进行一次判断
@@ -205,13 +205,17 @@ int Frontend::EstimateCurrentPose() {
             if (e->chi2() > chi2_th) {
                 features[i]->is_outlier_ = true;
                 // 设置等级  一般情况下g2o只处理level = 0的边，设置等级为1，下次循环g2o不再优化异常值
+                //这里每个边都有一个level的概念，
+                //默认情况下，g2o只处理level=0的边，在orbslam中，
+                // 如果确定某个边的重投影误差过大，则把level设置为1，
+                //也就是舍弃这个边对于整个优化的影响
                 e->setLevel(1);
                 cnt_outlier++;
             } else {
                 features[i]->is_outlier_ = false;
                 e->setLevel(0);
             };
-
+            //后20次不设置鲁棒核函数了，意味着此时不太可能出现大的异常点
             if (iteration == 2) {
                 e->setRobustKernel(nullptr);
             }
@@ -221,10 +225,11 @@ int Frontend::EstimateCurrentPose() {
     LOG(INFO) << "Outlier/Inlier in pose estimating: " << cnt_outlier << "/"
               << features.size() - cnt_outlier;
     // Set pose and outlier
-    current_frame_->SetPose(vertex_pose->estimate());
+    current_frame_->SetPose(vertex_pose->estimate());//保存优化后的位姿
 
     LOG(INFO) << "Current Pose = \n" << current_frame_->Pose().matrix();
-
+    //清除异常点 但是只在feature中清除了
+    //mappoint中仍然存在，仍然有使用的可能
     for (auto &feat : features) {
         if (feat->is_outlier_) {
             feat->map_point_.reset();
@@ -234,18 +239,31 @@ int Frontend::EstimateCurrentPose() {
     return features.size() - cnt_outlier;
 }
 
+//该函数的实现其实非常像FindFeaturesInRight(),
+//不同的是一个在左右目之间找，另一个在前后帧之间找
 int Frontend::TrackLastFrame() {
     // use LK flow to estimate points in the right image
     std::vector<cv::Point2f> kps_last, kps_current;
+    //遍历上一帧中的所有左目特征
     for (auto &kp : last_frame_->features_left_) {
+        //判断该特征有没有构建出相应的地图点
+        //对于左目图像来说，我们可以将其用于估计相机pose，但是不一定左目图像中的每一个点都有mappoint
+        //MapPoint的形成是需要左目和同一帧的右目中构成对应关系才可以，有些左目中的feature在右目中没有配对，就没有Mappoint
+        //但是没有Mappoint却不代表这个点是一个outlier
         if (kp->map_point_.lock()) {
             // use project point
+            //对于建立了Mappoint的特征点而言 
+            //kps_current的初值是通过world2pixel转换得到的
             auto mp = kp->map_point_.lock();
             auto px =
                 camera_left_->world2pixel(mp->pos_, current_frame_->Pose());
+            //使用new动态创建结构体变量时，必须是结构体指针类型。访问时，普通结构体变量使用使用成员变量访问符"."，
+            //指针类型的结构体变量使用的成员变量访问符为"->"。
             kps_last.push_back(kp->position_.pt);
             kps_current.push_back(cv::Point2f(px[0], px[1]));
         } else {
+            //对于没有建立Mappoint的特征点而言 
+            //kps_current的初值是kps_last
             kps_last.push_back(kp->position_.pt);
             kps_current.push_back(kp->position_.pt);
         }
@@ -264,6 +282,7 @@ int Frontend::TrackLastFrame() {
 
     for (size_t i = 0; i < status.size(); ++i) {
         if (status[i]) {
+            //status[i]=true则说明跟踪成功有对应点，false则跟踪失败没找到对应点
             cv::KeyPoint kp(kps_current[i], 7);
             Feature::Ptr feature(new Feature(current_frame_, kp));
             feature->map_point_ = last_frame_->features_left_[i]->map_point_;
@@ -278,6 +297,9 @@ int Frontend::TrackLastFrame() {
 
 bool Frontend::StereoInit() {
     //int num_features_left = DetectFeatures();
+    //一个frame其实就是一个时间点，
+    //里面同时含有左，右目的图像，以及对应的feature的vector
+    //这一步在提取左目特征，通常在左目当中提取特征时特征点数量是一定能保证的。
     int num_coor_features = FindFeaturesInRight();
     if (num_coor_features < num_features_init_) {
         return false;
@@ -294,15 +316,20 @@ bool Frontend::StereoInit() {
     }
     return false;
 }
-
+//检测当前帧的做图的特征点，并放入feature的vector容器中
 int Frontend::DetectFeatures() {
+    //掩膜，灰度图，同时可以看出，DetectFeatures是对左目图像的操作
     cv::Mat mask(current_frame_->left_img_.size(), CV_8UC1, 255);
     for (auto &feat : current_frame_->features_left_) {
+        //在已有的特征附近一个矩形区域内将掩膜值设为0
+        //即在这个矩形区域中不提取特征了，保持均匀性，并避免重复
         cv::rectangle(mask, feat->position_.pt - cv::Point2f(10, 10),
                       feat->position_.pt + cv::Point2f(10, 10), 0, CV_FILLED);
     }
 
     std::vector<cv::KeyPoint> keypoints;
+    //detect函数，第三个参数是用来指定特征点选取区域的，一个和原图像同尺寸的掩膜，其中非0区域代表detect函数感兴趣的提取区域，
+    //相当于为detect函数明确了提取的大致位置
     gftt_->detect(current_frame_->left_img_, keypoints, mask);
     int cnt_detected = 0;
     for (auto &kp : keypoints) {

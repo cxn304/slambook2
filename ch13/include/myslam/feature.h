@@ -32,8 +32,9 @@ struct Feature {
     bool is_on_left_image_ = true;  // 标识是否提在左图，false为右图
 
    public:
-    Feature() {}
-
+    //注意构造函数最后这里没有分号哦！
+    Feature() {} //无参数的构造函数数组初始化时调用
+    //利用带参数的构造函数进行结构体初始化
     Feature(std::shared_ptr<Frame> frame, const cv::KeyPoint &kp)
         : frame_(frame), position_(kp) {}
 };
