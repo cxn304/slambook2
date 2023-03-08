@@ -19,7 +19,7 @@ Vec2 Camera::camera2pixel(const Vec3 &p_c) {
             fy_ * p_c(1, 0) / p_c(2, 0) + cy_
     );
 }
-
+// depth在一个地方默认为1.0
 Vec3 Camera::pixel2camera(const Vec2 &p_p, double depth) {
     return Vec3(
             (p_p(0, 0) - cx_) * depth / fx_,

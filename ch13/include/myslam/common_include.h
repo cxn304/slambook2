@@ -23,7 +23,7 @@
 
 // typedefs for eigen
 // double matricies
-typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatXX;
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatXX;//Matrix<double, -1, -1>是一个动态大小的双精度浮点数矩阵
 typedef Eigen::Matrix<double, 10, 10> Mat1010;
 typedef Eigen::Matrix<double, 13, 13> Mat1313;
 typedef Eigen::Matrix<double, 8, 10> Mat810;

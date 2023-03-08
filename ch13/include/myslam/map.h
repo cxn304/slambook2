@@ -59,7 +59,7 @@ class Map {
     std::mutex data_mutex_;
     LandmarksType landmarks_;         // all landmarks
     LandmarksType active_landmarks_;  // active landmarks
-    KeyframesType keyframes_;         // all key-frames
+    KeyframesType keyframes_;         // all key-frames,本身是unordered_map格式,所以继承unordered_map的方法
     KeyframesType active_keyframes_;  // all key-frames
 
     Frame::Ptr current_frame_ = nullptr;

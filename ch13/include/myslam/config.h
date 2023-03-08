@@ -23,7 +23,7 @@ class Config {
     // set a new config file
     static bool SetParameterFile(const std::string &filename);
 
-    // access the parameter values
+    // access the parameter values，读取config文件夹下的数据
     template <typename T>
     static T Get(const std::string &key) {
         return T(Config::config_->file_[key]);

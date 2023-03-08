@@ -48,7 +48,7 @@ void Viewer::ThreadLoop() {
             .SetBounds(0.0, 1.0, 0.0, 1.0, -1024.0f / 768.0f)
             .SetHandler(new pangolin::Handler3D(vis_camera));
 
-    //const float blue[3] = {0, 0, 1};
+    const float blue[3] = {0, 0, 1};
     const float green[3] = {0, 1, 0};
 
     while (!pangolin::ShouldQuit() && viewer_running_) {
