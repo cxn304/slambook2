@@ -77,6 +77,7 @@ bool Frontend::Track() {
 }
 
 bool Frontend::InsertKeyframe() {
+    //需要前后帧追踪的匹配点大于一定数量才可以成为匹配点
     if (tracking_inliers_ >= num_features_needed_for_keyframe_) {
         // still have enough features, don't insert keyframe
         return false;
@@ -88,8 +89,8 @@ bool Frontend::InsertKeyframe() {
     LOG(INFO) << "Set frame " << current_frame_->id_ << " as keyframe "
               << current_frame_->keyframe_id_;
 
-    SetObservationsForKeyFrame();
-    DetectFeatures();  // detect new features
+    SetObservationsForKeyFrame();//添加关键帧的路标点
+    DetectFeatures();  // detect new features,检测当前关键帧的左目特征点
 
     // track in right image
     FindFeaturesInRight();
@@ -109,6 +110,7 @@ void Frontend::SetObservationsForKeyFrame() {
         if (mp) mp->AddObservation(feat);
     }
 }
+
 //在InsertKeyFrame函数中出现了一个三角化步骤，
 //这是因为当一个新的关键帧到来后，我们势必需要补充一系列新的特征点，
 // 此时则需要像建立初始地图一样，对这些新加入的特征点进行三角化，求其3D位置
@@ -432,19 +434,28 @@ bool Frontend::BuildInitMap() {
         //待计算的世界坐标系下的点
         Vec3 pworld = Vec3::Zero();
         //每一个同名点都进行一次triangulation
+        //triangulation（）函数 相机位姿,某个feature左右目的坐标,三角化后的坐标保存
         if (triangulation(poses, points, pworld) && pworld[2] > 0) {
-            auto new_map_point = MapPoint::CreateNewMappoint();
-            new_map_point->SetPos(pworld);
+            //根据前面存放的左右目相机pose和对应点相机坐标points进行三角化，得到对应地图点的深度，构造出地图点pworld
+            //需要对pworld进行判断，看其深度是否大于0, pworld[2]即是其深度。
+            auto new_map_point = MapPoint::CreateNewMappoint();//工厂模式创建一个新的地图点
+            new_map_point->SetPos(pworld);//mappoint类主要的数据成员  pos 以及 观测到的feature的vector
+            //为这个地图点添加观测量，这个地图点对应到了当前帧（应有帧ID）
+            //左目图像特征中的第i个以及右目图像特征中的第i个
             new_map_point->AddObservation(current_frame_->features_left_[i]);
             new_map_point->AddObservation(current_frame_->features_right_[i]);
+            //上两句是为地图点添加观测，这两句就是为特征类Feature对象填写地图点成员
             current_frame_->features_left_[i]->map_point_ = new_map_point;
             current_frame_->features_right_[i]->map_point_ = new_map_point;
             cnt_init_landmarks++;
+            //对Map类对象来说，地图里面应当多了一个地图点，所以要将这个地图点加到地图中去
             map_->InsertMapPoint(new_map_point);
         }
     }
+    //当前帧能够进入初始化说明已经满足了初始化所需的帧特征数量，
+    //作为初始化帧，可看做开始的第一帧，所以应当是一个关键帧
     current_frame_->SetKeyFrame();
-    map_->InsertKeyFrame(current_frame_);
+    map_->InsertKeyFrame(current_frame_);//对Map类对象来说，地图里面应当多了一个关键帧，所以要将这个关键帧加到地图中去
     backend_->UpdateMap();
 
     LOG(INFO) << "Initial map created with " << cnt_init_landmarks

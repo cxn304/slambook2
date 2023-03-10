@@ -12,24 +12,69 @@
 namespace myslam {
 
 Backend::Backend() {
-    backend_running_.store(true);
+    /*
+    原子操作的数据类型（atomic_bool,atomic_int,atomic_long等等），
+    对于这些原子数据类型的共享资源的访问，无需借助mutex等锁机制，
+    也能够实现对共享资源的正确访问。
+    */
+    backend_running_.store(true);// 构造函数中启动优化线程并挂起:通过原子操作实现
+    /*
+    如果回调函数是一个类的成员函数。
+    这时想把成员函数设置给一个回调函数指针往往是不行的
+    因为类的成员函数，多了一个隐含的参数this。 
+    所以直接赋值给函数指针肯定会引起编译报错。这时候就要用到bind
+    bind函数的用法和详细参考：
+    https://www.cnblogs.com/jialin0x7c9/p/12219239.html
+    thread用法参考：
+    https://blog.csdn.net/weixin_44156680/article/details/116260129
+    以下代码即是实现了创建一个回调函数为BackendLoop()的线程，并传入类参数
+    */
     backend_thread_ = std::thread(std::bind(&Backend::BackendLoop, this));
 }
 
 void Backend::UpdateMap() {
+    //unique_lock用法参考：
+    //https://blog.csdn.net/weixin_44156680/article/details/116260129
     std::unique_lock<std::mutex> lock(data_mutex_);
-    map_update_.notify_one();
+    map_update_.notify_one();//notify_one()与notify_all()常用来唤醒阻塞的线程
 }
 
 void Backend::Stop() {
     backend_running_.store(false);
     map_update_.notify_one();
+    //等待该线程终止，例如，在子线程调用了join（time）方法后，
+    //主线程只有等待子线程time时间后才能执行子线程后面的代码。
     backend_thread_.join();
 }
 
 void Backend::BackendLoop() {
-    while (backend_running_.load()) {
+    while (backend_running_.load()) {//用 load() 函数进行读操作
         std::unique_lock<std::mutex> lock(data_mutex_);
+         /*
+        std::condition_variable实际上是一个类，是一个和条件相关的类，说白了就是等待一个条件达成。
+        wait()用来等一个东西：
+        一、有除互斥量以外的第二个参数时：
+        如果第二个参数的lambda表达式返回值是false，那么wait()将解锁互斥量，并阻塞到本行
+        如果第二个参数的lambda表达式返回值是true，那么wait()直接返回并继续执行。（此时对互斥量上锁！）
+        阻塞到其他某个线程调用notify_one()成员函数为止；
+
+        二、无除互斥量以外的第二个参数时：
+        如果没有第二个参数，那么效果跟第二个参数lambda表达式返回false效果一样
+        wait()将解锁互斥量，并阻塞到本行，阻塞到其他某个线程调用notify_one()成员函数为止。
+
+        重点：显然，阻塞在这里的原因是没有获得互斥量的访问权
+
+        三、当其他线程用notify_one()将本线程wait()唤醒后，这个wait恢复后
+        1、wait()不断尝试获取互斥量锁，如果获取不到那么流程就卡在wait()这里等待获取，如果获取到了，那么wait()就继续执行，获取到了锁
+        2、如果wait有第二个参数就判断这个lambda表达式。
+            a)如果表达式为false，那wait又对互斥量解锁，然后又休眠，等待再次被notify_one()唤醒
+            b)如果lambda表达式为true，则wait返回，流程可以继续执行（此时互斥量已被锁住）。
+        3、如果wait没有第二个参数，则wait返回，流程走下去（直接锁住互斥量）。
+
+        注意：流程只要走到了wait()下面则互斥量一定被锁住了。
+
+        下面一句实现的功能是：执行到wait语句时直接解锁并堵塞，直到其他线程调用notify_one（），直接锁住互斥量并往下执行
+        */
         map_update_.wait(lock);
 
         /// 后端仅优化激活的Frames和Landmarks

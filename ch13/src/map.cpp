@@ -24,11 +24,11 @@ namespace myslam {
 
 void Map::InsertKeyFrame(Frame::Ptr frame) {
     current_frame_ = frame;
-    if (keyframes_.find(frame->keyframe_id_) == keyframes_.end()) {
-        keyframes_.insert(make_pair(frame->keyframe_id_, frame));
-        active_keyframes_.insert(make_pair(frame->keyframe_id_, frame));
+    if (keyframes_.find(frame->keyframe_id_) == keyframes_.end()) {// 如果当前的keyframe存在且是最后一个的话
+        keyframes_.insert(make_pair(frame->keyframe_id_, frame));//KeyframesType是unordered_map类型,可以直接调用make_pair生成pair对象
+        active_keyframes_.insert(make_pair(frame->keyframe_id_, frame));//insert()方法可以将pair类型的键值对元素添加到unordered_map容器中
     } else {
-        keyframes_[frame->keyframe_id_] = frame;
+        keyframes_[frame->keyframe_id_] = frame;//否则将这个frame设置成keyframes_的当前id
         active_keyframes_[frame->keyframe_id_] = frame;
     }
 
