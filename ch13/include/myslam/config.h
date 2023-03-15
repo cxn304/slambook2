@@ -13,8 +13,10 @@ namespace myslam {
  */
 class Config {
    private:
-    static std::shared_ptr<Config> config_;
-    cv::FileStorage file_;
+    static std::shared_ptr<Config> config_;//记录对象被引用的次数，当引用次数为 0 的时候，
+    //也就是最后一个指向该对象的共享指针析构的时候，共享指针的析构函数就把指向的内存区域释放掉
+    
+    cv::FileStorage file_;//cv::FileStorage对象代表一个YAML或XML格式的文件
 
     Config() {}  // private constructor makes a singleton
    public:

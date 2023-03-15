@@ -68,7 +68,7 @@ Frame::Ptr Dataset::NextFrame() {
     cv::resize(image_right, image_right_resized, cv::Size(), 0.5, 0.5,
                cv::INTER_NEAREST);
 
-    auto new_frame = Frame::CreateFrame();
+    auto new_frame = Frame::CreateFrame();//返回Frame::Ptr类型的东西
     new_frame->left_img_ = image_left_resized;
     new_frame->right_img_ = image_right_resized;
     current_image_index_++;

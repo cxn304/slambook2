@@ -36,7 +36,7 @@ void MapPoint::RemoveObservation(std::shared_ptr<Feature> feat) {
     for (auto iter = observations_.begin(); iter != observations_.end();
          iter++) {
         if (iter->lock() == feat) {
-            observations_.erase(iter);
+            observations_.erase(iter);//observations是<Feature>的list,所以有erase方法
             feat->map_point_.reset();
             observed_times_--;
             break;
