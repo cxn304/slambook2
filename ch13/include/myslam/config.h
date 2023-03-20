@@ -15,6 +15,9 @@ class Config {
    private:
     static std::shared_ptr<Config> config_;//记录对象被引用的次数，当引用次数为 0 的时候，
     //也就是最后一个指向该对象的共享指针析构的时候，共享指针的析构函数就把指向的内存区域释放掉
+    //此类中的config_是静态指针，所以所有的Config类的对象都可以共享此指针。
+    //但通过使用此类中的setParameterFile函数设定过config_所指向的对象后，
+    //再调用此类中的get()函数就会发生Segmentation fault (core dumped)错误。
     
     cv::FileStorage file_;//cv::FileStorage对象代表一个YAML或XML格式的文件
 

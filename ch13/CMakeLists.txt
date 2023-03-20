@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
 project(myslam)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE "Debug")
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wall")
-set(CMAKE_CXX_FLAGS_DEBUG  "-std=c++14 -O3 -fopenmp -pthread")
+# set(CMAKE_CXX_FLAGS "-std=c++14 -Wall") # -Wall：开启所有警告(设置c++14标准,并设置编译提示)
+# set(CMAKE_CXX_FLAGS_DEBUG  "-std=c++14 -O3 -fopenmp -pthread")
 
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)#设置依赖包的文件夹
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)#设置可执行文件生成位置
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)#设置库文件生成位置
 set(CMAKE_MODULE_PATH "/home/g2o/cmake_modules")
 set(CMAKE_MODULE_PATH"/usr/local/lib/cmake/Ceres")
 ############### dependencies ######################
@@ -57,11 +57,12 @@ set(THIRD_PARTY_LIBS
         ${GFLAGS_LIBRARIES}
         pthread
         ${CSPARSE_LIBRARY}
-        )
+        )#将需要的包,打包放到一个名称下,使得代码更简洁
 
-enable_testing()
+enable_testing()#启用对当前目录或以下目录的测试
 
 ############### source and test ######################
+#增加下级目录
 include_directories(${PROJECT_SOURCE_DIR}/include)
 add_subdirectory(src)
 add_subdirectory(test)

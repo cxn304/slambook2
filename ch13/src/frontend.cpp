@@ -312,7 +312,7 @@ int Frontend::TrackLastFrame() {
 }
 
 bool Frontend::StereoInit() {
-    //int num_features_left = DetectFeatures();
+    int num_features_left = DetectFeatures();
     //一个frame其实就是一个时间点，
     //里面同时含有左，右目的图像，以及对应的feature的vector
     //这一步在提取左目特征，通常在左目当中提取特征时特征点数量是一定能保证的。

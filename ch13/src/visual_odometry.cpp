@@ -21,7 +21,7 @@ bool VisualOdometry::Init() {
     //2.模板函数具体类型显示调用Config::Get<std::string>("dataset_dir")；
     dataset_ =
         Dataset::Ptr(new Dataset(Config::Get<std::string>("dataset_dir")));
-    CHECK_EQ(dataset_->Init(), true);
+    CHECK_EQ(dataset_->Init(), true);//通过Dataset::Init()函数设置相机的内参数，以及双目相机的外参数
 
     // create components and links
     //接下来按照逻辑关系一层层的确立联系，

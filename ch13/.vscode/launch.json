@@ -6,7 +6,7 @@
             "name": "CMake: Compile and Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/test_triangulation",
+            "program": "${workspaceFolder}/bin/run_kitti_stereo",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

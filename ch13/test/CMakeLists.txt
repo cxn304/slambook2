@@ -1,5 +1,5 @@
 SET(TEST_SOURCES test_triangulation)
-
+set(CMAKE_BUILD_TYPE "Debug")
 FOREACH (test_src ${TEST_SOURCES})
     ADD_EXECUTABLE(${test_src} ${test_src}.cpp)
     TARGET_LINK_LIBRARIES(${test_src} ${THIRD_PARTY_LIBS} myslam)

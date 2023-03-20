@@ -19,14 +19,14 @@ bool Dataset::Init() {
         return false;
     }
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i) {//4个相机?
         char camera_name[3];
         for (int k = 0; k < 3; ++k) {
-            fin >> camera_name[k];
+            fin >> camera_name[k];//P0:,P1:等的长度是3,即读取三个char
         }
         double projection_data[12];
         for (int k = 0; k < 12; ++k) {
-            fin >> projection_data[k];
+            fin >> projection_data[k];//直接把读进来的以空格分隔的数据转换为double类型
         }
         Mat33 K;
         K << projection_data[0], projection_data[1], projection_data[2],
@@ -37,7 +37,7 @@ bool Dataset::Init() {
         t = K.inverse() * t;
         K = K * 0.5;
         Camera::Ptr new_camera(new Camera(K(0, 0), K(1, 1), K(0, 2), K(1, 2),
-                                          t.norm(), SE3(SO3(), t)));
+                                          t.norm(), SE3(SO3(), t)));//t.norm()就是baseline
         cameras_.push_back(new_camera);
         LOG(INFO) << "Camera " << i << " extrinsics: " << t.transpose();
     }
