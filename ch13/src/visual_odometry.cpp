@@ -60,14 +60,15 @@ void VisualOdometry::Run() {
 
     LOG(INFO) << "VO exit";
 }
-
+//前端的主要函数、主逻辑就是Frontend::AddFrame()
 bool VisualOdometry::Step() {
+    // Step就是要对帧做处理,读进来新的帧等
     Frame::Ptr new_frame = dataset_->NextFrame();//从数据集中读出下一帧
-    if (new_frame == nullptr) return false;//如果读到的下一帧为空，也就是说没有读到下一帧，则无法继续跟踪，报错
+    if (new_frame == nullptr) return false;//这个数据集跑完了，没有下一帧了
 
     auto t1 = std::chrono::steady_clock::now();//计时
     bool success = frontend_->AddFrame(new_frame);//将新的一帧加入到前端中，进行跟踪处理,帧间位姿估计
-    auto t2 = std::chrono::steady_clock::now();
+    auto t2 = std::chrono::steady_clock::now();//前端的主要函数、主逻辑就是Frontend::AddFrame()
     auto time_used =
         std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     LOG(INFO) << "VO cost time: " << time_used.count() << " seconds.";

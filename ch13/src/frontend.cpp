@@ -33,30 +33,31 @@ bool Frontend::AddFrame(myslam::Frame::Ptr frame) {
     switch (status_) {
         case FrontendStatus::INITING:
             StereoInit();
-            break;
+            break;//双目初始化函数 StereoInit() 跑完了以后，不管状态是TRACKING_GOOD还是，TRACKING_BAD，都会运行 Track() 函数了
         case FrontendStatus::TRACKING_GOOD:
         case FrontendStatus::TRACKING_BAD:
             Track();
             break;
         case FrontendStatus::LOST:
-            Reset();
+            Reset();//如果前端跟丢了，就运行Reset()函数，但是这里Reset()函数其实是空的哈，跟丢了以后我们其实啥也不做
             break;
     }
 
     last_frame_ = current_frame_;
     return true;
 }
+
 //在执行Track之前，需要明白，Track究竟在做一件什么事情
 //Track是当前帧和上一帧之间进行的匹配
 //而初始化是某一帧左右目（双目）之间进行的匹配
 bool Frontend::Track() {
     //先看last_frame_是不是正常存在的
     if (last_frame_) {
-        current_frame_->SetPose(relative_motion_ * last_frame_->Pose());//给current_frame_当前帧的位姿设置一个初值
+        current_frame_->SetPose(relative_motion_ * last_frame_->Pose());//用匀速模型给current_frame_当前帧的位姿设置一个初值
     }
 
-    int num_track_last = TrackLastFrame();//使用光流法得到前后两帧之间匹配特征点并返回匹配数
-    tracking_inliers_ = EstimateCurrentPose();//接下来根据跟踪到的内点的匹配数目，可以分类进行后续操作，估计当前帧的位姿
+    int num_track_last = TrackLastFrame();//使用光流法得到前后两帧之间匹配特征点并返回匹配数（前后两帧都只用左目图像）
+    tracking_inliers_ = EstimateCurrentPose();//接下来根据跟踪到的内点的匹配数目，可以分类进行后续操作，优化当前帧的位置
 
     if (tracking_inliers_ > num_features_tracking_) {
         // tracking good
@@ -69,8 +70,8 @@ bool Frontend::Track() {
         status_ = FrontendStatus::LOST;
     }
 
-    InsertKeyframe();
-    relative_motion_ = current_frame_->Pose() * last_frame_->Pose().inverse();
+    InsertKeyframe();//在此函数里面判断当前要不要插入关键帧
+    relative_motion_ = current_frame_->Pose() * last_frame_->Pose().inverse();//更新当前帧和上一帧的位置差,也就是ΔT,变量名是relative_motion_
 
     if (viewer_) viewer_->AddCurrentFrame(current_frame_);
     return true;
@@ -79,31 +80,31 @@ bool Frontend::Track() {
 bool Frontend::InsertKeyframe() {
     //需要前后帧追踪的匹配点大于一定数量才可以成为匹配点
     if (tracking_inliers_ >= num_features_needed_for_keyframe_) {
-        // still have enough features, don't insert keyframe
+        // still have enough features, don't insert keyframe,可以节约计算资源
         return false;
     }
-    // current frame is a new keyframe
+    // current frame is a new keyframe,在内点数少于80个的时候插入关键帧
     current_frame_->SetKeyFrame();
     map_->InsertKeyFrame(current_frame_);
 
     LOG(INFO) << "Set frame " << current_frame_->id_ << " as keyframe "
-              << current_frame_->keyframe_id_;
+              << current_frame_->keyframe_id_;//frame有自身的id,他作为keyframe也会有自己的id
 
     SetObservationsForKeyFrame();//添加关键帧的路标点
-    DetectFeatures();  // detect new features,检测当前关键帧的左目特征点
+    DetectFeatures();  // 对当前帧提取新的GFTT特征点,检测当前关键帧的左目特征点
 
     // track in right image
-    FindFeaturesInRight();
+    FindFeaturesInRight();//接着匹配右目特征点
     // triangulate map points
-    TriangulateNewPoints();
-    // update backend because we have a new keyframe
+    TriangulateNewPoints();//三角化新特征点并加入到地图中去
+    // 因为添加了新的关键帧，所以在后端里面 运行 Backend::UpdateMap() 更新一下局部地图，启动一次局部地图的BA优化
     backend_->UpdateMap();
 
     if (viewer_) viewer_->UpdateMap();
 
     return true;
 }
-
+// map_point_就是路标点
 void Frontend::SetObservationsForKeyFrame() {
     for (auto &feat : current_frame_->features_left_) {
         auto mp = feat->map_point_.lock();
@@ -158,7 +159,7 @@ int Frontend::TriangulateNewPoints() {
 // g2o做优化,加入顶点和边进行优化
 int Frontend::EstimateCurrentPose() {
     // setup g2o
-    typedef g2o::BlockSolver_6_3 BlockSolverType;
+    typedef g2o::BlockSolver_6_3 BlockSolverType;// pose is 6 dof, landmarks is 3 dof
     typedef g2o::LinearSolverDense<BlockSolverType::PoseMatrixType>
         LinearSolverType;
     auto solver = new g2o::OptimizationAlgorithmLevenberg(
@@ -167,7 +168,7 @@ int Frontend::EstimateCurrentPose() {
     g2o::SparseOptimizer optimizer;
     optimizer.setAlgorithm(solver);
 
-    // vertex
+    // vertex,顶点是当前帧到上一帧的位姿变化T
     VertexPose *vertex_pose = new VertexPose();  // camera vertex_pose
     vertex_pose->setId(0);
     vertex_pose->setEstimate(current_frame_->Pose());
@@ -176,7 +177,7 @@ int Frontend::EstimateCurrentPose() {
     // K
     Mat33 K = camera_left_->K();//Camera类的成员函数K()
 
-    // edges
+    // edges 边是地图点(3d世界坐标)在当前帧的投影位置(像素坐标)
     int index = 1;
     std::vector<EdgeProjectionPoseOnly *> edges;
     std::vector<Feature::Ptr> features;//features 存储的是左相机的特征点
@@ -218,7 +219,7 @@ int Frontend::EstimateCurrentPose() {
                 e->computeError();
             }
             // （信息矩阵对应的范数）误差超过阈值，判定为异常点，并计数，否则恢复为正常点
-            if (e->chi2() > chi2_th) {
+            if (e->chi2() > chi2_th) {//chi2代表卡方检验
                 features[i]->is_outlier_ = true;
                 // 设置等级  一般情况下g2o只处理level = 0的边，设置等级为1，下次循环g2o不再优化异常值
                 //这里每个边都有一个level的概念，
@@ -248,7 +249,7 @@ int Frontend::EstimateCurrentPose() {
     //mappoint中仍然存在，仍然有使用的可能
     for (auto &feat : features) {
         if (feat->is_outlier_) {
-            feat->map_point_.reset();
+            feat->map_point_.reset();//.reset()方法的作用是将该弱引用指针设置为空nullptr,但不影响指向该对象的强引用数量,只会使得其弱引用数量减少
             feat->is_outlier_ = false;  // maybe we can still use it in future
         }
     }
@@ -312,7 +313,7 @@ int Frontend::TrackLastFrame() {
 }
 
 bool Frontend::StereoInit() {
-    int num_features_left = DetectFeatures();
+    int num_features_left = DetectFeatures();//找左相机feature
     //一个frame其实就是一个时间点，
     //里面同时含有左，右目的图像，以及对应的feature的vector
     //这一步在提取左目特征，通常在左目当中提取特征时特征点数量是一定能保证的。
@@ -337,7 +338,7 @@ int Frontend::DetectFeatures() {
     //掩膜，灰度图，同时可以看出，DetectFeatures是对左目图像的操作
     cv::Mat mask(current_frame_->left_img_.size(), CV_8UC1, 255);
     for (auto &feat : current_frame_->features_left_) {
-        //在已有的特征附近一个矩形区域内将掩膜值设为0
+        //在已经存在特征点的地方，画一个20x20的矩形框，掩膜设置为0
         //即在这个矩形区域中不提取特征了，保持均匀性，并避免重复
         cv::rectangle(mask, feat->position_.pt - cv::Point2f(10, 10),
                       feat->position_.pt + cv::Point2f(10, 10), 0, CV_FILLED);
@@ -346,11 +347,11 @@ int Frontend::DetectFeatures() {
     std::vector<cv::KeyPoint> keypoints;
     //detect函数，第三个参数是用来指定特征点选取区域的，一个和原图像同尺寸的掩膜，其中非0区域代表detect函数感兴趣的提取区域，
     //相当于为detect函数明确了提取的大致位置
-    gftt_->detect(current_frame_->left_img_, keypoints, mask);
+    gftt_->detect(current_frame_->left_img_, keypoints, mask);//detect是opencv的函数,自带mask的选项
     int cnt_detected = 0;
     for (auto &kp : keypoints) {
         current_frame_->features_left_.push_back(
-            Feature::Ptr(new Feature(current_frame_, kp)));
+            Feature::Ptr(new Feature(current_frame_, kp)));//检测到的新特征点的像素位置和当前帧关联起来
         cnt_detected++;
     }
 
@@ -366,12 +367,12 @@ int Frontend::FindFeaturesInRight() {
         //遍历左目特征的特征点（feature）
         kps_left.push_back(kp->position_.pt);//feature类中的keypoint对应的point2f
         auto mp = kp->map_point_.lock();//feature类中的mappoint
-        if (mp) {
+        if (mp) {//如果当前特征点有在地图上有对应的点，那么将根据特征点的3D POSE和当前帧的位姿反求出特征点在当前帧的像素坐标
             // use projected points as initial guess
             auto px =
                 camera_right_->world2pixel(mp->pos_, current_frame_->Pose());
             kps_right.push_back(cv::Point2f(px[0], px[1]));
-        } else {
+        } else {//如果没有对应特征点，右目的特征点初值就是和左目一样
             // use same pixel in left image
             kps_right.push_back(kp->position_.pt);
         }
@@ -402,7 +403,7 @@ int Frontend::FindFeaturesInRight() {
             num_good_pts++;
         } else {
             //左右目匹配失败
-            current_frame_->features_right_.push_back(nullptr);
+            current_frame_->features_right_.push_back(nullptr);//没匹配上就放个空指针
         }
     }
     LOG(INFO) << "Find " << num_good_pts << " in the right image.";

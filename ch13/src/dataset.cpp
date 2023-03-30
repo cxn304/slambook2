@@ -45,7 +45,7 @@ bool Dataset::Init() {
     current_image_index_ = 0;
     return true;
 }
-
+// 读取新帧的两张图片
 Frame::Ptr Dataset::NextFrame() {
     boost::format fmt("%s/image_%d/%06d.png");
     cv::Mat image_left, image_right;

@@ -87,6 +87,11 @@ void Backend::BackendLoop() {
 void Backend::Optimize(Map::KeyframesType &keyframes,
                        Map::LandmarksType &landmarks) {
     // setup g2o
+    //其实 Backend::Optimize()函数 和前端的 EstimateCurrentPose() 函数流有点类似，
+    //不同的地方是，在前端做这个优化的时候，只有一个顶点，也就是仅有化当前帧位姿这一个变量，
+    //因此边也都是一元边。在后端优化里面，局部地图中的所有关键帧位姿和地图点都是顶点，
+    //边也是二元边，在 g2o_types.h 文件中 class EdgeProjection 的 linearizeOplus()函数中，
+    //新增了一项 重投影误差对地图点的雅克比矩阵，187页，公式(7.48)
     typedef g2o::BlockSolver_6_3 BlockSolverType;
     typedef g2o::LinearSolverCSparse<BlockSolverType::PoseMatrixType>
         LinearSolverType;
@@ -125,8 +130,8 @@ void Backend::Optimize(Map::KeyframesType &keyframes,
     double chi2_th = 5.991;  // robust kernel 阈值
     std::map<EdgeProjection *, Feature::Ptr> edges_and_features;
     //std::pair主要的两个成员变量是first和second
-    for (auto &landmark : landmarks) {//遍历所有活动路标点
-        if (landmark.second->is_outlier_) continue;//外点不优化
+    for (auto &landmark : landmarks) {//遍历所有活动路标点,就是最多7个
+        if (landmark.second->is_outlier_) continue;//外点不优化,first是id,second包括该点的位置,观测的若干相机的位姿,该点在各相机中的像素坐标
         unsigned long landmark_id = landmark.second->id_;//mappoint的id
         auto observations = landmark.second->GetObs();//得到所有观测到这个路标点的feature，是features
         for (auto &obs : observations) {//遍历所有观测到这个路标点的feature，得到第二个顶点，形成对应的点边关系
@@ -152,6 +157,9 @@ void Backend::Optimize(Map::KeyframesType &keyframes,
                 v->setEstimate(landmark.second->Pos());// Position in world，是作为estimate的第二个对象
                 v->setId(landmark_id + max_kf_id + 1);
                 v->setMarginalized(true);//边缘化
+                //简单的说G2O 中对路标点设置边缘化(Point->setMarginalized(true))是为了 在计算求解过程中，
+                //先消去路标点变量，实现先求解相机位姿，然后再利用求解出来的相机位姿，反过来计算路标点的过程，
+                //目的是为了加速求解，并非真的将路标点给边缘化掉。
                 vertices_landmarks.insert({landmark_id, v});
                 optimizer.addVertex(v);//增加point顶点
             }
@@ -215,7 +223,7 @@ void Backend::Optimize(Map::KeyframesType &keyframes,
     LOG(INFO) << "Outlier/Inlier in optimization: " << cnt_outlier << "/"
               << cnt_inlier;
 
-    // Set pose and lanrmark position
+    // Set pose and lanrmark position，这样也就把后端优化的结果反馈给了前端
     for (auto &v : vertices) {
         keyframes.at(v.first)->SetPose(v.second->estimate());//KeyframesType是unordered_map
     }//unordered_map.at()和unordered_map[]都用于引用给定位置上存在的元素

@@ -21,7 +21,7 @@
 #include "myslam/feature.h"
 
 namespace myslam {
-
+//把当前帧插入到局部地图中,同时检测关键帧数量是否大于7,大于7了就移除一个关键帧
 void Map::InsertKeyFrame(Frame::Ptr frame) {
     current_frame_ = frame;
     if (keyframes_.find(frame->keyframe_id_) == keyframes_.end()) {// 如果当前的keyframe存在且是最后一个的话
@@ -33,18 +33,19 @@ void Map::InsertKeyFrame(Frame::Ptr frame) {
     }
 
     if (static_cast<int>(active_keyframes_.size()) > num_active_keyframes_) {
-        RemoveOldKeyframe();
+        RemoveOldKeyframe();//如果当前激活的关键帧大于 num_active_keyframes_ (默认是7)，就删除掉老的或太近的关键帧
     }
 }
-
+// 在三角化的过程中插入地图点,因为三角化可以求得3d地图点坐标
 void Map::InsertMapPoint(MapPoint::Ptr map_point) {
-    if (landmarks_.find(map_point->id_) == landmarks_.end()) {
+    if (landmarks_.find(map_point->id_) == landmarks_.end()) {//这里比较的是当前mappoint是否是landmarks_中最后一个mappoint
         landmarks_.insert(make_pair(map_point->id_, map_point));
         active_landmarks_.insert(make_pair(map_point->id_, map_point));
     } else {
         landmarks_[map_point->id_] = map_point;
         active_landmarks_[map_point->id_] = map_point;
-    }
+    }//对于insert方法，如果map中不存在key，则采用拷贝构造函数创建val临时对象（make_pair过程），再采用拷贝构造函数创建map中的val对象。
+    //对于[]方法，如果map中不存在key，则采用默认构造函数创建map中val对象，再采用赋值运算符赋值；如果原来存在key，则直接采用赋值运算符赋值。
 }
 
 void Map::RemoveOldKeyframe() {
@@ -72,7 +73,7 @@ void Map::RemoveOldKeyframe() {
         // 如果存在很近的帧，优先删掉最近的
         frame_to_remove = keyframes_.at(min_kf_id);
     } else {
-        // 删掉最远的
+        // 否则就删掉最远的，这里的思想是，帧很近的话，加入进来优化没有意义，不是很近的话，就将重合度与其他帧相比较小的帧删除
         frame_to_remove = keyframes_.at(max_kf_id);
     }
 
@@ -96,15 +97,16 @@ void Map::RemoveOldKeyframe() {
     CleanMap();
 }
 
+// 删除了关键帧后,必然有一些landmark不见了,所以要删除
 void Map::CleanMap() {
     int cnt_landmark_removed = 0;
     for (auto iter = active_landmarks_.begin();
-         iter != active_landmarks_.end();) {
+         iter != active_landmarks_.end();) {// active_landmarks_是unordered_map,他里面有迭代器
         if (iter->second->observed_times_ == 0) {
-            iter = active_landmarks_.erase(iter);
+            iter = active_landmarks_.erase(iter);// 删除了关键帧后,如果某些active_landmark没有被各个帧的相机观测到,就要删除
             cnt_landmark_removed++;
         } else {
-            ++iter;
+            ++iter;//这里的iter不是一个数字,相当于unordered_map中的元素
         }
     }
     LOG(INFO) << "Removed " << cnt_landmark_removed << " active landmarks";

@@ -23,7 +23,7 @@ struct MapPoint {
     Vec3 pos_ = Vec3::Zero();  // Position in world
     std::mutex data_mutex_;
     int observed_times_ = 0;  // being observed by feature matching algo.
-    std::list<std::weak_ptr<Feature>> observations_;
+    std::list<std::weak_ptr<Feature>> observations_;//observations_是存储feature的list
 
     MapPoint() {}
 

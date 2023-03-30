@@ -65,7 +65,7 @@ class EdgeProjectionPoseOnly : public g2o::BaseUnaryEdge<2, Vec2, VertexPose> {
 
     EdgeProjectionPoseOnly(const Vec3 &pos, const Mat33 &K)
         : _pos3d(pos), _K(K) {}
-    //这里计算error
+    //这里计算error,通过G2O定义的虚函数,下面两个函数
     virtual void computeError() override {
         const VertexPose *v = static_cast<VertexPose *>(_vertices[0]);
         SE3 T = v->estimate();
@@ -89,7 +89,7 @@ class EdgeProjectionPoseOnly : public g2o::BaseUnaryEdge<2, Vec2, VertexPose> {
             -fx - fx * X * X * Zinv2, fx * Y * Zinv, 0, -fy * Zinv,
             fy * Y * Zinv2, fy + fy * Y * Y * Zinv2, -fy * X * Y * Zinv2,
             -fy * X * Zinv;
-    }
+    }//重投影误差对相机位姿（李代数）的一阶导数
 
     virtual bool read(std::istream &in) override { return true; }
 

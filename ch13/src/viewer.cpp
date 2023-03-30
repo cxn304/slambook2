@@ -11,6 +11,7 @@
 namespace myslam {
 
 Viewer::Viewer() {
+    // 构造函数主要用来在创建对象时初始化对象。Viewer类的初始化里面 开启一个线程做显示，并绑定 Viewer::ThreadLoop() 函数
     viewer_thread_ = std::thread(std::bind(&Viewer::ThreadLoop, this));
 }
 
@@ -21,7 +22,7 @@ void Viewer::Close() {
 
 void Viewer::AddCurrentFrame(Frame::Ptr current_frame) {
     std::unique_lock<std::mutex> lck(viewer_data_mutex_);
-    current_frame_ = current_frame;
+    current_frame_ = current_frame; //相当于直接把current_frame更新为类内置的current_frame_
 }
 
 void Viewer::UpdateMap() {

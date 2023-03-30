@@ -57,10 +57,10 @@ class Map {
     void RemoveOldKeyframe();
 
     std::mutex data_mutex_;
-    LandmarksType landmarks_;         // all landmarks
-    LandmarksType active_landmarks_;  // active landmarks
+    LandmarksType landmarks_;         // all landmarks,unordered_map形式的数据,有至少两个或多个相机可以观测到
+    LandmarksType active_landmarks_;  // active landmarks,键是mappoint的id,值是mappoint,当然这里是active_mappoint
     KeyframesType keyframes_;         // all key-frames,本身是unordered_map格式,所以继承unordered_map的方法
-    KeyframesType active_keyframes_;  // all key-frames
+    KeyframesType active_keyframes_;  // all key-frames,键是frame的id,值是frame,当然这里是active_keyframe
 
     Frame::Ptr current_frame_ = nullptr;
 
