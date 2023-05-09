@@ -81,6 +81,8 @@ int main(int argc, char **argv) {
 
 // -------------------------------------------------------------------------------------------------- //
 // ORB pattern
+//特征点附近256次像素比较，每次比较两个像素点
+//patter选取的两个像素点的分布方式，如高斯分布，随机分布，每种分布的结果应该差不多
 int ORB_pattern[256 * 4] = {
   8, -3, 9, 5/*mean (0), correlation (0)*/,
   4, 2, 7, -12/*mean (1.12461e-05), correlation (0.0437584)*/,
@@ -341,6 +343,8 @@ int ORB_pattern[256 * 4] = {
 };
 
 // compute the descriptor
+//将特征点领域看成patch
+//patch size of comparison
 void ComputeORB(const cv::Mat &img, vector<cv::KeyPoint> &keypoints, vector<DescType> &descriptors) {
   const int half_patch_size = 8;
   const int half_boundary = 16;
@@ -354,7 +358,7 @@ void ComputeORB(const cv::Mat &img, vector<cv::KeyPoint> &keypoints, vector<Desc
       continue;
     }
     // 图像处理中常常使用的一种数据类型uchar
-    float m01 = 0, m10 = 0;//这里是计算单个点周围区域的灰度重心,具有旋转不变性
+    float m01 = 0, m10 = 0;//这里并没有计算图像块的灰度质心，只是计算了m10，m01，然后算的角度
     for (int dx = -half_patch_size; dx < half_patch_size; ++dx) {
       for (int dy = -half_patch_size; dy < half_patch_size; ++dy) {
         uchar pixel = img.at<uchar>(kp.pt.y + dy, kp.pt.x + dx);
@@ -369,22 +373,27 @@ void ComputeORB(const cv::Mat &img, vector<cv::KeyPoint> &keypoints, vector<Desc
     float cos_theta = m10 / m_sqrt;
 
     // compute the angle of this point
+    //计算局部区域内所有像素点角度
+    //描述子为二进制描述子，p大于q取1，小于取0
     DescType desc(8, 0); // 8个描述子向量，每个向量中的元素占据32位，初始化为0；每个描述子使用256位二进制数进行描述
     for (int i = 0; i < 8; i++)
     { // 处理每个向量
-      uint32_t d = 0;
+      uint32_t d = 0;//定义一个32位的数据。存储32个0，1数据
       for (int k = 0; k < 32; k++)
-      { // 处理每一位
-        int idx_pq = i * 32 + k;
+      { // 处理每一位,比较p，q值，计算BRIEF描述子
+        int idx_pq = i * 32 + k;//每次循环用掉4个值，一共256行数据，一次循环32行，故乘以系数32
         cv::Point2f p(ORB_pattern[idx_pq * 4], ORB_pattern[idx_pq * 4 + 1]);
         cv::Point2f q(ORB_pattern[idx_pq * 4 + 2], ORB_pattern[idx_pq * 4 + 3]);
-        // p点和q点之后要比较
-        // rotate with theta
+        //rotate with theta,关键点邻域需要旋转
+        //p,q为关键点附近两个比较的像素，像素分布为pattern
+        //pp、qq表达式为图像中任意点(x1,y1)绕另一坐标点(x2,y2)旋转坐标表达式
+        //旋转角度为特征点到质心构成的向量的角度
+        //p.x=x1-x2、p.y=y1-y2
         cv::Point2f pp = cv::Point2f(cos_theta * p.x - sin_theta * p.y, sin_theta * p.x + cos_theta * p.y)
                          + kp.pt;
         cv::Point2f qq = cv::Point2f(cos_theta * q.x - sin_theta * q.y, sin_theta * q.x + cos_theta * q.y)
                          + kp.pt;
-        if (img.at<uchar>(pp.y, pp.x) < img.at<uchar>(qq.y, qq.x)) {
+        if (img.at<uchar>(pp.y, pp.x) < img.at<uchar>(qq.y, qq.x)) {//这里再强制类型转换，取最近邻像素坐标的灰度值用于计算
           d |= 1 << k; // 左移运算符是用来将一个数的各二进制位全部左移若干位,右补0
         }              // a|=b等价于a=a|b
       }                // 因为汉明距离的计算可以用异或操作然后计算二进制位数来实现
