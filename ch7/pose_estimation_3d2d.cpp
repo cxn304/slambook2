@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
   }
   // 上面的循环说明VecVector3d就是Eigen::Vector3d,但是在typedef时候不一样
   cout << "calling bundle adjustment by gauss newton" << endl;
-  Sophus::SE3d pose_gn;
+  Sophus::SE3d pose_gn;// 默认构造函数创建一个单位元素的SE3
   t1 = chrono::steady_clock::now();
   bundleAdjustmentGaussNewton(pts_3d_eigen, pts_2d_eigen, K, pose_gn);
   t2 = chrono::steady_clock::now();

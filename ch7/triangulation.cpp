@@ -1,9 +1,14 @@
 #include <iostream>
+#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
+#include "opencv2/core/eigen.hpp"
 #include "opencv2/imgcodecs/legacy/constants_c.h"
+#include <opencv2/core.hpp>
 // #include "extra.h" // used in opencv2
 using namespace std;
 using namespace cv;
+using namespace Eigen;
 
 void find_feature_matches(
   const Mat &img_1, const Mat &img_2,
@@ -23,6 +28,14 @@ void triangulation(
   const std::vector<DMatch> &matches,
   const Mat &R, const Mat &t,
   vector<Point3d> &points
+);
+
+Eigen::Vector3d triangulatedByEigenLeastSquare(
+  const vector<KeyPoint> &keypoint_1,
+  const vector<KeyPoint> &keypoint_2,
+  const std::vector<DMatch> &matches,
+  const Mat &R, const Mat &t,
+  vector<Vector3d> &points
 );
 
 /// 作图用
@@ -56,7 +69,9 @@ int main(int argc, char **argv) {
 
   //-- 三角化
   vector<Point3d> points;
+  vector<Vector3d> points1;
   triangulation(keypoints_1, keypoints_2, matches, R, t, points);
+  triangulatedByEigenLeastSquare(keypoints_1, keypoints_2, matches, R, t, points1);//算出来一样
 
   //-- 验证三角化点与特征点的重投影关系,内参标定之后就可以重建,内参单位均为像素
   Mat K = (Mat_<double>(3, 3) << 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1);
@@ -65,15 +80,15 @@ int main(int argc, char **argv) {
   for (int i = 0; i < matches.size(); i++) {
     // 第一个图
     float depth1 = points[i].z;//这个point的坐标是第一个相机的坐标
-    cout << "depth: " << depth1 << endl;
-    cout << "x,y,z:" << points[i]<< endl;
+    //cout << "depth: " << depth1 << endl;
+    //cout << "x,y,z:" << points[i]<< endl;
     Point2d pt1_cam = pixel2cam(keypoints_1[matches[i].queryIdx].pt, K);//这个转出来的是归一化平面上的坐标
     cv::circle(img1_plot, keypoints_1[matches[i].queryIdx].pt, 2, get_color(depth1), 2);
-    cout << "keypoints_1:x,y:"<< keypoints_1[matches[i].queryIdx].pt<<endl;
+    //cout << "keypoints_1:x,y:"<< keypoints_1[matches[i].queryIdx].pt<<endl;
     // 第二个图
     Mat pt2_trans = R * (Mat_<double>(3, 1) << points[i].x, points[i].y, points[i].z) + t;
     float depth2 = pt2_trans.at<double>(2, 0);
-    cout << "x2的x,y,z:" << pt2_trans << endl;
+    //cout << "x2的x,y,z:" << pt2_trans << endl;
     cv::circle(img2_plot, keypoints_2[matches[i].trainIdx].pt, 2, get_color(depth2), 2);
   }
   // 有了匹配点的图像坐标，就可以计算重投影误差,由两个pixel2cam求出相机坐标,再一转换,看相差多少
@@ -200,6 +215,62 @@ void triangulation(
     points.push_back(p);
   }
 }
+
+Eigen::Vector3d triangulatedByEigenLeastSquare(const vector<KeyPoint> &keypoint_1,
+  const vector<KeyPoint> &keypoint_2,
+  const std::vector<DMatch> &matches,
+  const Mat &R, const Mat &t,
+  vector<Vector3d> &points)
+{
+    Mat T1 = (Mat_<float>(3, 4) <<
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0);//T1表示相机1的T矩阵
+    Mat T2 = (Mat_<float>(3, 4) << R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2), t.at<double>(0, 0),
+              R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2), t.at<double>(1, 0),
+              R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2), t.at<double>(2, 0)); 
+              // T2表示相机2的T矩阵
+
+    Mat K = (Mat_<double>(3, 3) << 520.9, 0, 325.1, 0, 521.0, 249.7, 0, 0, 1);
+    vector<Point2f> pts_1, pts_2; // cv::Point2f
+    for (DMatch m:matches) {
+      // 将像素坐标转换至相机坐标
+      pts_1.push_back(pixel2cam(keypoint_1[m.queryIdx].pt, K));
+      pts_2.push_back(pixel2cam(keypoint_2[m.trainIdx].pt, K));
+    }
+    Eigen::Matrix3d K_eigen,R_eigen;
+    Eigen::Vector3d t_eigen;
+    cv::cv2eigen(K,K_eigen);//eigen 类型的K内参
+    cv::cv2eigen(R,R_eigen);//eigen 类型的R
+    cv::cv2eigen(t,t_eigen);//eigen 类型的t
+    Eigen::Matrix<double,3,2> A;
+    Eigen::Vector3d point_1,point_2;
+    Eigen::Matrix3d skew_point_2;
+    for(int ii=0;ii<pts_1.size();ii++){
+      point_1<<pts_1[ii].x,pts_1[ii].y,1;//齐次坐标
+      point_2<<pts_2[ii].x,pts_2[ii].y,1;
+      A.block(0,0,3,1) = -R_eigen*K_eigen.inverse()*point_1;
+      A.block(0,1,3,1) = K_eigen.inverse()*point_2;
+       skew_point_2<< 0, -point_2[2], point_2[1],
+         point_2[2],  0, -point_2[0],
+         -point_2[1], point_2[0],  0;
+      Vector3d zuo = -(skew_point_2*R_eigen*point_1);
+      Vector3d you = (skew_point_2*t_eigen);
+      Vector3d s1 = you.array() / zuo.array();
+
+      //行满秩 最小二乘解：x = A^T * (A*A^T)^-1 b
+      //列满秩 最小二乘解：x = (A^T*A)^-1 * A^T b
+      Eigen::Vector2d d =(A.transpose()*A).inverse()*A.transpose()*t_eigen;//d[0],d[1]是相机坐标系1,2下特征点深度
+      double mean_value = s1.mean();
+      Eigen::Vector3d p1 = mean_value*point_1;
+      points.push_back(p1);
+    }
+    
+    //Eigen::Vector3d p2 = d[1]*K_eigen.inverse()*point_2;//p_2也能求出
+    Vector3d p1;
+    return p1;
+}
+
 
 Point2f pixel2cam(const Point2d &p, const Mat &K) {
   return Point2f

@@ -6,7 +6,7 @@
             "name": "CMake: Compile and Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bundle_adjustment_g2o",
+            "program": "${workspaceFolder}/build/bundle_adjustment_ceres",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

@@ -54,7 +54,11 @@ void SolveBA(BALProblem &bal_problem) {
         // 得到与观测值匹配的相机位姿和观测点3d点
         double *camera = cameras + camera_block_size * bal_problem.camera_index()[i];
         double *point = points + point_block_size * bal_problem.point_index()[i];
-
+        //camera的9个参数应该是包含内参的
+        for(int ii=0;ii<9;ii++){
+            std::cout << *(camera+ii) << std::endl;
+        }
+        
         problem.AddResidualBlock(cost_function, loss_function, camera, point); // 添加误差项
         // 参数 ：： 代价函数的对象  ， 核函数（不使用时nullptr） ，待估计的参数（camera, point）（可多个）
     }

@@ -6,7 +6,7 @@
             "name": "CMake: Compile and Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/orb_self",
+            "program": "${workspaceFolder}/build/pose_estimation_3d2d",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

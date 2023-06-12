@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   Mat t_x =
     (Mat_<double>(3, 3) << 0, -t.at<double>(2, 0), t.at<double>(1, 0),
       t.at<double>(2, 0), 0, -t.at<double>(0, 0),
-      -t.at<double>(1, 0), t.at<double>(0, 0), 0);//左乘时向量转为矩阵
+      -t.at<double>(1, 0), t.at<double>(0, 0), 0);//左乘时向量转为矩阵,将向量转为反对称矩阵
 
   cout << "t^R=" << endl << t_x * R << endl;
 
@@ -136,16 +136,17 @@ void pose_estimation_2d2d(std::vector<KeyPoint> keypoints_1,
 
   for (int i = 0; i < (int) matches.size(); i++)
   { // queryIdx索引到keypoints1并且trainIdx索引到keypoints2
+  //queryIdx表示匹配的查询图像中的特征点的索引,trainIdx表示匹配的训练图像中的特征点的索引
     points1.push_back(keypoints_1[matches[i].queryIdx].pt);
     points2.push_back(keypoints_2[matches[i].trainIdx].pt);
   }
 
-  //-- 计算基础矩阵，使用opencv自带的方法8点法
+  //-- 计算基础矩阵，使用opencv自带的方法8点法,图像坐标
   Mat fundamental_matrix;
   fundamental_matrix = findFundamentalMat(points1, points2, FM_8POINT);
   cout << "fundamental_matrix is " << endl << fundamental_matrix << endl;
 
-  //-- 计算本质矩阵
+  //-- 计算本质矩阵,这个需要归一化相机坐标,意味着是需要内参矩阵的
   Point2d principal_point(325.1, 249.7);  //相机光心, TUM dataset标定值
   double focal_length = 521;      //相机焦距, TUM dataset标定值
   Mat essential_matrix;
